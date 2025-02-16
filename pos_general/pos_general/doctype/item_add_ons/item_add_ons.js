@@ -3,13 +3,7 @@
 
 frappe.ui.form.on('Item Add-Ons', {
 	refresh: function(frm) {
-		frm.set_query("item", function () {
-			return {
-				filters: {
-					has_variants: 1,
-				},
-			};
-		});
+		
 		frm.set_query("dependent_item", function () {
 			return {
 				filters: {
