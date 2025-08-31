@@ -129,7 +129,7 @@ def execute(filters=None):
         net_sales_for_invoice = max(0.0, flt(inv.base_total) - flt(complimentary_for_this_invoice))
 
         # Sales Breakdown tallies
-        if inv.resturent_type == "Demo":
+        if inv.resturent_type == "Dine In":
             dine_in_sales += net_sales_for_invoice
         elif inv.resturent_type == "Take Away":
             takeaway_sales += net_sales_for_invoice
