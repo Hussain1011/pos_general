@@ -26,7 +26,7 @@ def execute(filters=None):
             "base_total",                 # Gross (before invoice-level discount)
             "base_discount_amount",       # Invoice discount (positive)
             "base_net_total",             # After discount, before taxes
-            "rounded_total",              # Usually what customer pays (with round off)
+            "grand_total",              # Usually what customer pays (with round off)
             "change_amount",
             "tip"
         ],
@@ -114,12 +114,12 @@ def execute(filters=None):
 
         # Anything not covered by non-complimentary payments is complimentary
         # (This also covers partial Complimentary splits correctly.)
-        complimentary_for_this_invoice = max(0.0, flt(inv.rounded_total) - effective_non_comp_paid)
+        complimentary_for_this_invoice = max(0.0, flt(inv.grand_total) - effective_non_comp_paid)
 
         # Edge case: if invoice has ONLY Complimentary MOP lines, count full invoice as complimentary
         # (In practice this will already be true from the above formula, but we keep the intent explicit.)
         if mop_set and mop_set.issubset({COMPLIMENTARY_MOP}):
-            complimentary_for_this_invoice = flt(inv.rounded_total)
+            complimentary_for_this_invoice = flt(inv.grand_total)
 
         # Add to global aggregate
         if complimentary_for_this_invoice > 0.0001:
