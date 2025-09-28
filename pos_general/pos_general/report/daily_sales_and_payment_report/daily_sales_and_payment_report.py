@@ -138,7 +138,7 @@ def execute(filters=None):
 
         # Payment Breakdown (Including Tips)
         # Cash bucket: cash_received - change + cash_tip
-        cash_amount_final = cash_paid - flt(inv.change_amount) + cash_tip_this_inv
+        cash_amount_final = cash_paid - flt(inv.change_amount)
         if abs(cash_amount_final) > 0.0001:
             add_pay(CASH_MOP, cash_amount_final)
 
