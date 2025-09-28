@@ -143,7 +143,7 @@ def execute(filters=None):
             add_pay(CASH_MOP, cash_amount_final)
 
         # Card bucket: card + card_tip
-        card_amount_final = card_paid + card_tip_this_inv
+        card_amount_final = card_paid
         if abs(card_amount_final) > 0.0001:
             # We’ll group all card-like MOPs under their actual names, so distribute:
             # If you prefer a single "Card" line, collapse them into one label.
