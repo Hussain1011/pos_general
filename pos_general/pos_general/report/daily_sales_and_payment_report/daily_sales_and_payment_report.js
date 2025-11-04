@@ -12,12 +12,19 @@ frappe.query_reports["Daily Sales and Payment Report"] = {
 			default: frappe.defaults.get_user_default("Company"),
 		  },
 		  {
-			fieldname: "date",
-			label: __("Date"),
+			fieldname: "from_date",
+			label: __("From Date"),
 			fieldtype: "Date",
 			reqd: 1,
-			default: frappe.datetime.get_today(),
+			default: frappe.datetime.month_start()
 		  },
+		  {
+			fieldname: "to_date",
+			label: __("To Date"),
+			fieldtype: "Date",
+			reqd: 1,
+			default: frappe.datetime.month_end()
+		  }
 	]
 };
 
