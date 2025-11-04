@@ -103,14 +103,23 @@ def execute(filters=None):
 
         effective_non_comp_paid = effective_cash + effective_card + effective_other
 
-        # --- Complimentary from payment MOP ---
+        # --- Complimentary (old + new) and Credit Handling ---
+
+        # --- Complimentary via Payment MOP (with partial payments considered) ---
         complimentary_from_mop = 0.0
-        complimentary_from_mop = max(0.0, flt(inv.grand_total) - effective_non_comp_paid)
+        billed_amount = flt(inv.base_net_total)
+        total_paid = sum(flt(p.amount) for p in inv_pays)
 
-        if mop_set and mop_set.issubset({COMPLIMENTARY_MOP}):
-            complimentary_from_mop = flt(inv.grand_total)
+        if COMPLIMENTARY_MOP in mop_set:
+            # Amounts paid through Complimentary MOP should be fully considered complimentary
+            comp_paid = sum(flt(p.amount) for p in inv_pays if p.mode_of_payment == COMPLIMENTARY_MOP)
 
-        # --- Complimentary from items ---
+            # Remaining unpaid (if any) also becomes complimentary
+            unpaid_portion = max(0.0, billed_amount - total_paid)
+
+            complimentary_from_mop = comp_paid + unpaid_portion
+
+        # Complimentary via Items (new logic)
         comp_items = frappe.get_all(
             "Sales Invoice Item",
             filters={"parent": inv.name, COMPLIMENTARY_ITEM_FIELD: 1},
@@ -118,25 +127,40 @@ def execute(filters=None):
         )
         complimentary_from_items = sum(flt(i.amount) for i in comp_items)
 
-        complimentary_for_this_invoice = flt(complimentary_from_mop) + flt(complimentary_from_items)
-        complimentary_total += complimentary_for_this_invoice
+        complimentary_for_this_invoice = complimentary_from_mop + complimentary_from_items
 
-        # --- Credit sales detection ---
+        # --- Credit Logic ---
         credit_for_this_invoice = 0.0
-        if mop_set and CREDIT_MOP in mop_set:
-            credit_for_this_invoice = flt(inv.grand_total)
-        elif flt(inv.outstanding_amount) > 0.0001 and not mop_set:
-            credit_for_this_invoice = flt(inv.grand_total)
+        total_paid = sum(flt(p.amount) for p in inv_pays)
+        billed_amount = flt(inv.base_net_total)
+        unpaid_amount = max(0.0, billed_amount - total_paid)
 
-        if credit_for_this_invoice > 0:
+        # 1️⃣ Case A: No payments or partial unpaid → treat unpaid as credit
+        if (not inv_pays) or (unpaid_amount > 0.0001 and COMPLIMENTARY_MOP not in mop_set):
+            credit_for_this_invoice += unpaid_amount
+
+        # 2️⃣ Case B: Old logic – any payments made through “Credit” MOP
+        credit_paid = sum(flt(p.amount) for p in inv_pays if p.mode_of_payment.lower() in {"credit", "credit sales", "on account"})
+        if credit_paid:
+            credit_for_this_invoice += credit_paid
+
+        # Add to totals
+        if credit_for_this_invoice > 0.0001:
             credit_sales_total += credit_for_this_invoice
 
+        # Add up global totals
+        if complimentary_for_this_invoice > 0.0001:
+            complimentary_total += complimentary_for_this_invoice
+
         # --- Dine In / Take Away ---
+        # Complimentary reduces sales, Credit still part of net sales
         net_sales_for_invoice = max(0.0, flt(inv.base_total) - flt(complimentary_for_this_invoice))
+
         if inv.resturent_type == "Dine In":
             dine_in_sales += net_sales_for_invoice
         elif inv.resturent_type == "Take Away":
             takeaway_sales += net_sales_for_invoice
+
         discount_total += flt(inv.base_discount_amount)
 
         # --- Payment totals (cash, card, other) ---
