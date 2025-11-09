@@ -76,21 +76,55 @@ def execute(filters=None):
         mop_set = {p.mode_of_payment for p in inv_pays}
         inv_tip = flt(inv.tip)
 
-        # --- Tip allocation ---
+        # # --- Tip allocation ---
+        # cash_tip_this_inv = 0.0
+        # card_tip_this_inv = 0.0
+        # if inv_tip:
+        #     if len(mop_set) == 1:
+        #         only_mop = list(mop_set)[0]
+        #         if only_mop in CARD_MOPS:
+        #             card_tip_this_inv = inv_tip
+        #         else:
+        #             cash_tip_this_inv = inv_tip
+        #     else:
+        #         cash_tip_this_inv = inv_tip
+
+        # cash_paid = sum(flt(p.amount) for p in inv_pays if p.mode_of_payment == CASH_MOP)
+        # card_paid = sum(flt(p.amount) for p in inv_pays if p.mode_of_payment in CARD_MOPS)
+
+        # --- Tip allocation (UPDATED Credit Card logic) ---
         cash_tip_this_inv = 0.0
         card_tip_this_inv = 0.0
-        if inv_tip:
-            if len(mop_set) == 1:
-                only_mop = list(mop_set)[0]
-                if only_mop in CARD_MOPS:
-                    card_tip_this_inv = inv_tip
-                else:
-                    cash_tip_this_inv = inv_tip
-            else:
-                cash_tip_this_inv = inv_tip
 
         cash_paid = sum(flt(p.amount) for p in inv_pays if p.mode_of_payment == CASH_MOP)
         card_paid = sum(flt(p.amount) for p in inv_pays if p.mode_of_payment in CARD_MOPS)
+
+        billed_amount = flt(inv.base_net_total)
+        inv_tip = flt(inv.tip)
+
+        # --- Handle all three scenarios ---
+        # 1. Credit card paid more than billed (tip not entered)
+        # 2. Tip entered but card paid equals billed (tip not added to paid)
+        # 3. Both correct
+        if card_paid > (billed_amount + inv_tip):
+            # Tip not entered properly — calculate difference
+            card_tip_this_inv = card_paid - billed_amount
+        elif inv_tip > 0 and card_paid <= billed_amount:
+            # Tip entered but not added in paid
+            card_tip_this_inv = inv_tip
+        elif inv_tip > 0 and abs((card_paid - billed_amount) - inv_tip) <= 1:
+            # Both entered correctly
+            card_tip_this_inv = inv_tip
+
+        # Assign cash tip if it’s a cash-only invoice
+        if len({p.mode_of_payment for p in inv_pays}) == 1:
+            only_mop = inv_pays[0].mode_of_payment
+            if only_mop == CASH_MOP and inv_tip:
+                cash_tip_this_inv = inv_tip
+        else:
+            # Mixed MOPs — assign to cash if not card
+            if not card_tip_this_inv and inv_tip:
+                cash_tip_this_inv = inv_tip
 
         # --- Effective payments ---
         effective_cash = max(0.0, flt(cash_paid) - flt(inv.change_amount))
