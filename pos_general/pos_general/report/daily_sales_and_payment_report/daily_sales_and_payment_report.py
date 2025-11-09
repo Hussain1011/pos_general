@@ -157,11 +157,76 @@ def execute(filters=None):
         comp_items = frappe.get_all(
             "Sales Invoice Item",
             filters={"parent": inv.name, COMPLIMENTARY_ITEM_FIELD: 1},
-            fields=["amount"],
+            fields=["amount", "item_code", "qty", "uom", "parent"],
         )
-        complimentary_from_items = sum(flt(i.amount) for i in comp_items)
+        print('pta to chle ktni arhi hai ?', comp_items)
+        if "___price_cache" not in locals():
+            price_cache = {}
+        company_currency = frappe.get_cached_value("Company", company, "default_currency")
+        price_list_name = inv.get("selling_price_list")
+
+        def get_pl_rate_base(item_code, uom):
+            """Fetch price_list_rate from Item Price for this price list and convert to base currency."""
+            key = (price_list_name, item_code, uom)
+            if key in price_cache:
+                return price_cache[key]
+
+            filters = {
+                "item_code": item_code,
+                "selling": 1
+            }
+            # Try with matching UOM first, then fallback without UOM
+            try_orders = [
+                (dict(filters, uom=uom), "valid_from desc"),
+                (filters, "valid_from desc"),
+            ]
+
+            price_list_rate = None
+            rate_currency = None
+
+            for f, order in try_orders:
+                ip = frappe.get_all(
+                    "Item Price",
+                    filters=f,
+                    fields=["price_list_rate", "currency"],
+                    order_by=order,
+                    limit=1,
+                )
+                print('ip me ana chahye', ip[0].price_list_rate)
+                if ip:
+                    price_list_rate = flt(ip[0].price_list_rate)
+                    rate_currency = ip[0].currency
+                    break
+
+            # As a last resort, use Item's standard_rate (optional)
+            if price_list_rate is None:
+                std = frappe.get_all(
+                    "Item",
+                    filters={"name": item_code},
+                    fields=["standard_rate"],
+                    limit=1,
+                )
+                price_list_rate = flt((std and std[0].standard_rate) or 0.0)
+                rate_currency = company_currency  # standard_rate is in base/company currency
+
+            # Convert to base currency if needed
+            if rate_currency and rate_currency != company_currency:
+                ex = flt(get_exchange_rate(rate_currency, company_currency, inv.posting_date))
+            else:
+                ex = 1.0
+
+            base_rate = price_list_rate * ex
+            price_cache[key] = base_rate
+            return base_rate
+
+        complimentary_from_items = 0.0
+        for it in comp_items:
+            unit_base = get_pl_rate_base(it.item_code, it.uom)
+            print('Rate 0 arha q', unit_base)
+            complimentary_from_items += unit_base * flt(it.qty)
 
         complimentary_for_this_invoice = complimentary_from_mop + complimentary_from_items
+
 
         # --- Credit Logic ---
         credit_for_this_invoice = 0.0
@@ -188,7 +253,7 @@ def execute(filters=None):
 
         # --- Dine In / Take Away ---
         # Complimentary reduces sales, Credit still part of net sales
-        net_sales_for_invoice = max(0.0, flt(inv.base_total) - flt(complimentary_for_this_invoice))
+        net_sales_for_invoice = max(0.0, flt(inv.base_total))
 
         if inv.resturent_type == "Dine In":
             dine_in_sales += net_sales_for_invoice
