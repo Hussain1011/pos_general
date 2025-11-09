@@ -202,7 +202,15 @@ def execute(filters=None):
         if abs(cash_amount_final) > 0.0001:
             add_pay(CASH_MOP, cash_amount_final)
 
-        card_amount_final = card_paid + card_tip_this_inv
+        # Avoid double counting: if card_paid already includes the tip (card_paid > billed),
+        # use card_paid as-is. Only add tip to card when it wasn't included in paid.
+        if card_tip_this_inv > 0 and card_paid <= billed_amount:
+            # Scenario 2: tip entered but not paid → include it to reflect actual intake
+            card_amount_final = card_paid + card_tip_this_inv
+        else:
+            # Scenarios 1 & 3: tip already in card_paid OR no tip → don't add again
+            card_amount_final = card_paid
+
         if abs(card_amount_final) > 0.0001:
             add_pay("Card", card_amount_final)
 
