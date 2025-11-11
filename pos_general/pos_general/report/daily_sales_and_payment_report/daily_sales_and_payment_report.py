@@ -159,7 +159,6 @@ def execute(filters=None):
             filters={"parent": inv.name, COMPLIMENTARY_ITEM_FIELD: 1},
             fields=["amount", "item_code", "qty", "uom", "parent"],
         )
-        print('pta to chle ktni arhi hai ?', comp_items)
         if "___price_cache" not in locals():
             price_cache = {}
         company_currency = frappe.get_cached_value("Company", company, "default_currency")
@@ -192,7 +191,6 @@ def execute(filters=None):
                     order_by=order,
                     limit=1,
                 )
-                print('ip me ana chahye', ip[0].price_list_rate)
                 if ip:
                     price_list_rate = flt(ip[0].price_list_rate)
                     rate_currency = ip[0].currency
@@ -222,7 +220,6 @@ def execute(filters=None):
         complimentary_from_items = 0.0
         for it in comp_items:
             unit_base = get_pl_rate_base(it.item_code, it.uom)
-            print('Rate 0 arha q', unit_base)
             complimentary_from_items += unit_base * flt(it.qty)
 
         complimentary_for_this_invoice = complimentary_from_mop + complimentary_from_items
