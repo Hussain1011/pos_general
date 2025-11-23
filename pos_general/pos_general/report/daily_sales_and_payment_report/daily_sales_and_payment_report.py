@@ -109,9 +109,11 @@ def execute(filters=None):
         if card_paid > (billed_amount + inv_tip):
             # Tip not entered properly — calculate difference
             card_tip_this_inv = card_paid - billed_amount
-        elif inv_tip > 0 and card_paid <= billed_amount:
-            # Tip entered but not added in paid
-            card_tip_this_inv = inv_tip
+
+        # elif inv_tip > 0 and card_paid <= billed_amount:
+        #     # Tip entered but not added in paid
+        #     card_tip_this_inv = inv_tip
+        #     print("nahi ana bawa 2")
         elif inv_tip > 0 and abs((card_paid - billed_amount) - inv_tip) <= 1:
             # Both entered correctly
             card_tip_this_inv = inv_tip
@@ -121,10 +123,12 @@ def execute(filters=None):
             only_mop = inv_pays[0].mode_of_payment
             if only_mop == CASH_MOP and inv_tip:
                 cash_tip_this_inv = inv_tip
+
         else:
             # Mixed MOPs — assign to cash if not card
             if not card_tip_this_inv and inv_tip:
                 cash_tip_this_inv = inv_tip
+
 
         # --- Effective payments ---
         effective_cash = max(0.0, flt(cash_paid) - flt(inv.change_amount))
@@ -268,7 +272,7 @@ def execute(filters=None):
         # use card_paid as-is. Only add tip to card when it wasn't included in paid.
         if card_tip_this_inv > 0 and card_paid <= billed_amount:
             # Scenario 2: tip entered but not paid → include it to reflect actual intake
-            card_amount_final = card_paid + card_tip_this_inv
+            card_amount_final = card_paid
         else:
             # Scenarios 1 & 3: tip already in card_paid OR no tip → don't add again
             card_amount_final = card_paid
