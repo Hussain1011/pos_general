@@ -14,17 +14,34 @@ def execute(filters=None):
     company = filters.get("company")
     from_date = filters.get("from_date")
     to_date = filters.get("to_date")
+    pos_profile = filters.get("pos_profile")
+    pos_shift = filters.get("pos_shift")
 
     if not company or not from_date or not to_date:
         frappe.throw("Please select Company, From Date, and To Date")
 
+    # Build filters dynamically
+    si_filters = {
+        "docstatus": 1,
+        "company": company,
+    }
+
+    if pos_profile:
+        si_filters["pos_profile"] = pos_profile
+
+    # ✅ If opening_shift selected: ignore date range
+    if pos_shift:
+        # IMPORTANT: change this fieldname to your actual SI field that stores shift link
+        si_filters["posa_pos_opening_shift"] = pos_shift
+    else:
+        # ✅ Otherwise require date range
+        if not from_date or not to_date:
+            frappe.throw("Please select From Date and To Date (or select Opening Shift)")
+        si_filters["posting_date"] = ["between", [from_date, to_date]]
+
     invoices = frappe.get_all(
         "Sales Invoice",
-        filters={
-            "docstatus": 1,
-            "company": company,
-            "posting_date": ["between", [from_date, to_date]],
-        },
+        filters=si_filters,
         fields=[
             "name",
             "posting_date",
